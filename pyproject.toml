@@ -26,13 +26,9 @@ classifiers = [
 ]
 keywords = ["event sourcing", "events", "cqrs", "ddd", "projector"]
 
-# fractal-core and fractal-commands are not on PyPI yet, so they are pinned to
-# their repositories. Same pattern fractal-studio already uses for fractal-forge.
-# PyPI rejects direct URL dependencies, so these must become plain names before
-# this package can be published — see README, "Not on PyPI yet".
 dependencies = [
-    "fractal-core @ git+https://github.com/Fractal-Forge/fractal-core@main",
-    "fractal-commands @ git+https://github.com/Fractal-Forge/fractal-commands@main",
+    "fractal-core",
+    "fractal-commands",
     "fractal-repositories",
     "fractal-specifications",
 ]

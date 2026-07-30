@@ -12,13 +12,6 @@
 [build-image]: https://github.com/Fractal-Forge/fractal-events/actions/workflows/build.yml/badge.svg
 [build-url]: https://github.com/Fractal-Forge/fractal-events/actions/workflows/build.yml
 
-## Not on PyPI yet
-
-`fractal-core` and `fractal-commands` are pinned to their git repositories in
-`pyproject.toml`, because neither is published yet. PyPI rejects direct URL
-dependencies, so those two lines must become plain names before this package
-can be released.
-
 ## Installation
 
 ```sh
@@ -83,9 +76,9 @@ mean the application is wired wrong.
 ### Mapping events to Processes
 
 Process mappers run a stateful workflow instead of dispatching a command. They
-need [fractal-processes](https://github.com/Fractal-Forge/fractal-processes),
-which is optional and imported only when a process mapper actually fires, and
-they need an application context:
+need [fractal-processes](https://github.com/Fractal-Forge/fractal-processes)
+(`pip install fractal-processes`), which is imported only when a process mapper
+actually fires, and they need an application context:
 
 ```python
 projector = CommandBusProjector(
