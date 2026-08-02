@@ -37,7 +37,7 @@ from fractal_events.projectors.command_bus_projector import CommandBusProjector
 from fractal_events.projectors.event_store_projector import EventStoreProjector
 from fractal_events.projectors.print_projector import PrintEventProjector
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "BasicEventStore",

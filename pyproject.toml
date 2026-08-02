@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "fractal-events"
-version = "1.0.0"
+version = "1.1.0"
 description = "Event sourcing for the Fractal stack: events, publisher, event store and the projectors that persist them or turn them back into commands."
 readme = "README.md"
 authors = [

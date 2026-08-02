@@ -4,14 +4,23 @@ from dataclasses import asdict
 
 from fractal_core import EnhancedEncoder
 
-from fractal_events.event import SendingEvent
+from fractal_events.event import Event
 from fractal_events.event_projector import EventProjector
 from fractal_events.message import Message
+from fractal_events.projectors._protocols import RecordableEvent
 
 
 class PrintEventProjector(EventProjector):
-    # Narrower than the base on purpose — see EventProjector.project.
-    def project(self, id: str, event: SendingEvent):  # type: ignore[override]
+    def project(self, id: str, event: Event):
+        if not isinstance(event, RecordableEvent):
+            # What this projector cannot do is record an event with no object
+            # id — say so here rather than fail on a missing attribute
+            # somewhere further in.
+            raise TypeError(
+                f"{type(self).__name__} projects sending events; "
+                f"{type(event).__name__} has no object id to record"
+            )
+
         message = Message(
             id=id,
             occurred_on=datetime.datetime.now(tz=datetime.timezone.utc),

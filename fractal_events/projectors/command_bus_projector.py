@@ -1,13 +1,13 @@
-from typing import Any, Callable, List, Optional, Type, Union
+from typing import Any, Callable, List, Optional, Type
 
 from fractal_commands import CommandBus
 from fractal_core import FractalException
 
 from fractal_events.event import (
+    Event,
     EventCommandMapper,
     EventProcessMapper,
     ReceivingEvent,
-    SendingEvent,
 )
 from fractal_events.event_projector import EventProjector
 
@@ -59,8 +59,7 @@ class CommandBusProjector(EventProjector):
                 "to run against"
             )
 
-    # Narrower than the base on purpose — see EventProjector.project.
-    def project(self, id: str, event: Union[SendingEvent, ReceivingEvent]):  # type: ignore[override]
+    def project(self, id: str, event: Event):
         if isinstance(event, ReceivingEvent):
             self.command_bus_func().handle(event.to_command())
 
@@ -78,7 +77,7 @@ class CommandBusProjector(EventProjector):
         elif event.__class__ in self.process_mappers:
             self._run_processes(event)
 
-    def _run_processes(self, event: Union[SendingEvent, ReceivingEvent]):
+    def _run_processes(self, event: Event):
         """Run the Processes mapped to this event.
 
         The imports are deliberately local. fractal-processes is an optional
