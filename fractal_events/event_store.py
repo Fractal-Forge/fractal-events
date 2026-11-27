@@ -1,6 +1,6 @@
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import asdict, fields, is_dataclass
 from datetime import datetime, timezone
 from json import JSONEncoder
 from typing import List, Optional, Type
@@ -12,7 +12,7 @@ from fractal_repositories.mixins.inmemory_repository_mixin import (
 )
 from fractal_specifications.generic.specification import Specification
 
-from fractal_events.event import BasicSendingEvent
+from fractal_events.event import BasicSendingEvent, ensure_identity
 from fractal_events.event_stream import EventStream
 from fractal_events.message import Message
 
@@ -25,6 +25,43 @@ class EventNotMappedError(DomainException):
         super(EventNotMappedError, self).__init__(
             f"Event '{event}' is not mapped to be loaded from the EventStore.",
         )
+
+
+def _message_id(event) -> str:
+    """The event's own id, so a message and the live event share one key."""
+    return ensure_identity(event).event_id or str(uuid.uuid4())
+
+
+def _with_identity(event_class, data: dict, message: Message) -> dict:
+    """Stored event data, with an identity for events stored before they had one.
+
+    Such an event gets its message id as its own id and is its own source, so it
+    reads back the same on every replay instead of a fresh random id each time.
+    Only for event classes that have the identity fields (`BasicSendingEvent`).
+    """
+    if not (
+        is_dataclass(event_class)
+        and "event_id" in {f.name for f in fields(event_class)}
+    ):
+        return data
+    if not data.get("event_id"):
+        data = {**data, "event_id": message.id}
+    if not data.get("correlation_id"):
+        data = {**data, "correlation_id": data["event_id"]}
+    return data
+
+
+def _restore_identity(event, message: Message):
+    """The same, for an event object read back whole (object or pickle stores)."""
+    if not getattr(event, "event_id", ""):
+        event.event_id = message.id
+    if not getattr(event, "correlation_id", ""):
+        event.correlation_id = event.event_id
+    if not hasattr(event, "causation_id"):
+        event.causation_id = ""
+    if not hasattr(event, "depth"):
+        event.depth = 0
+    return event
 
 
 class EventStore(ABC):
@@ -67,7 +104,7 @@ class ObjectEventStore(BasicEventStore):
         for event in event_stream.events:
             self.event_store_repository.add(
                 Message(
-                    id=str(uuid.uuid4()),
+                    id=_message_id(event),
                     occurred_on=datetime.now(timezone.utc),
                     event=event.__class__.__name__,
                     data=event,
@@ -80,7 +117,10 @@ class ObjectEventStore(BasicEventStore):
         self, specification: Optional[Specification] = None
     ) -> EventStream:
         return EventStream(
-            events=[m.data for m in self.event_store_repository.find(specification)]
+            events=[
+                _restore_identity(m.data, m)
+                for m in self.event_store_repository.find(specification)
+            ]
         )
 
 
@@ -97,7 +137,7 @@ class DictEventStore(BasicEventStore):
         for event in event_stream.events:
             self.event_store_repository.add(
                 Message(
-                    id=str(uuid.uuid4()),
+                    id=_message_id(event),
                     occurred_on=datetime.now(timezone.utc),
                     event=event.__class__.__name__,
                     data=asdict(event),
@@ -112,7 +152,7 @@ class DictEventStore(BasicEventStore):
         events = []
         for m in self.event_store_repository.find(specification):
             if event := self.events.get(m.event, None):
-                events.append(event(**m.data))
+                events.append(event(**_with_identity(event, m.data, m)))
             else:
                 raise EventNotMappedError(m.event)
         return EventStream(events=events)
@@ -135,7 +175,7 @@ class JsonEventStore(BasicEventStore):
         for event in event_stream.events:
             self.event_store_repository.add(
                 Message(
-                    id=str(uuid.uuid4()),
+                    id=_message_id(event),
                     occurred_on=datetime.now(timezone.utc),
                     event=event.__class__.__name__,
                     data=json.dumps(asdict(event), cls=self.json_encoder),
@@ -152,7 +192,7 @@ class JsonEventStore(BasicEventStore):
         events = []
         for m in self.event_store_repository.find(specification):
             if event := self.events.get(m.event, None):
-                events.append(event(**json.loads(m.data)))
+                events.append(event(**_with_identity(event, json.loads(m.data), m)))
             else:
                 raise EventNotMappedError(m.event)
         return EventStream(events=events)
@@ -173,7 +213,7 @@ class PickleEventStore(BasicEventStore):
         for event in event_stream.events:
             self.event_store_repository.add(
                 Message(
-                    id=str(uuid.uuid4()),
+                    id=_message_id(event),
                     occurred_on=datetime.now(timezone.utc),
                     event=event.__class__.__name__,
                     data=pickle.dumps(event),
@@ -189,5 +229,5 @@ class PickleEventStore(BasicEventStore):
 
         events = []
         for m in self.event_store_repository.find(specification):
-            events.append(pickle.loads(m.data))
+            events.append(_restore_identity(pickle.loads(m.data), m))
         return EventStream(events=events)

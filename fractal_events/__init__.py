@@ -10,6 +10,7 @@ Process mappers need fractal-processes, which is optional and imported only
 when one actually fires.
 """
 
+from fractal_events.causation import Cause, caused_by, current_cause
 from fractal_events.event import (
     BasicSendingEvent,
     Event,
@@ -17,6 +18,7 @@ from fractal_events.event import (
     EventProcessMapper,
     ReceivingEvent,
     SendingEvent,
+    ensure_identity,
 )
 from fractal_events.event_projector import EventProjector
 from fractal_events.event_publisher import EventPublisher
@@ -37,11 +39,12 @@ from fractal_events.projectors.command_bus_projector import CommandBusProjector
 from fractal_events.projectors.event_store_projector import EventStoreProjector
 from fractal_events.projectors.print_projector import PrintEventProjector
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "BasicEventStore",
     "BasicSendingEvent",
+    "Cause",
     "CommandBusProjector",
     "DictEventStore",
     "Event",
@@ -62,4 +65,7 @@ __all__ = [
     "PrintEventProjector",
     "ReceivingEvent",
     "SendingEvent",
+    "caused_by",
+    "current_cause",
+    "ensure_identity",
 ]

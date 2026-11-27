@@ -3,6 +3,7 @@ from typing import Any, Callable, List, Optional, Type
 from fractal_commands import CommandBus
 from fractal_core import FractalException
 
+from fractal_events.causation import caused_by
 from fractal_events.event import (
     Event,
     EventCommandMapper,
@@ -60,12 +61,18 @@ class CommandBusProjector(EventProjector):
             )
 
     def project(self, id: str, event: Event):
-        if isinstance(event, ReceivingEvent):
-            self.command_bus_func().handle(event.to_command())
+        """Run every command and Process mapped to `event`, as its descendants.
 
-        # Execute command mappers
-        elif event.__class__ in self.command_mappers:
-            for mapper in self.command_mappers[event.__class__]:
+        Both kinds run when both are mapped: a command mapper (a read model,
+        say) no longer hides the Processes chained to the same event. Events
+        raised meanwhile continue `event`'s chain (see fractal_events.causation).
+        """
+        with caused_by(event):
+            if isinstance(event, ReceivingEvent):
+                self.command_bus_func().handle(event.to_command())
+                return
+
+            for mapper in self.command_mappers.get(event.__class__, ()):
                 commands = mapper(event)
                 for command in (
                     commands if type(commands) is list else [commands]
@@ -73,9 +80,8 @@ class CommandBusProjector(EventProjector):
                     if command is not None:  # Skip None returns
                         self.command_bus_func().handle(command)
 
-        # Execute process mappers
-        elif event.__class__ in self.process_mappers:
-            self._run_processes(event)
+            if event.__class__ in self.process_mappers:
+                self._run_processes(event)
 
     def _run_processes(self, event: Event):
         """Run the Processes mapped to this event.
