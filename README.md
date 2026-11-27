@@ -42,6 +42,35 @@ Events published together share one stream id; separate calls get separate
 ones. Every projector sees every event — the publisher does not filter, and
 projectors do not know about each other.
 
+## Event identity and causation
+
+Every sending event carries four keyword-only fields, set when it is created:
+
+| field | meaning |
+|---|---|
+| `event_id` | its own id (`uuid4`) |
+| `correlation_id` | the `event_id` of the event the chain started from; a source is its own |
+| `causation_id` | the `event_id` of the event whose handling created this one; empty for a source |
+| `depth` | links from the source: 0 for a source, one more per link |
+
+`CommandBusProjector` runs the mappers and Processes for an event inside
+`caused_by(event)`, so every event created meanwhile continues that event's
+chain. Work that leaves the current context takes the cause along and restores
+it later:
+
+```python
+from fractal_events import Cause, caused_by, current_cause
+
+job.cause = current_cause().to_dict()          # when scheduling
+with caused_by(Cause.from_dict(job.cause)):    # in the worker
+    run(job)
+```
+
+The fields are left out of equality, so two events that say the same thing still
+compare equal. The event stores use `event_id` as the message id, so a live event
+and its replay share one key; events stored before identities existed read back
+with their message id as `event_id`, the same on every replay.
+
 ## Projectors
 
 - **`PrintEventProjector`** — writes each event as one JSON line. Useful in
@@ -72,6 +101,9 @@ this particular deployment has no handler for — that is normal, not broken. A
 `CommandBus(strict=False)` for a projector, so a miss is logged rather than
 thrown. A strict bus is right for a service call, where a missing handler does
 mean the application is wired wrong.
+
+When an event has both command mappers and process mappers, both run (before
+1.2 a command mapper hid the Processes mapped to the same event).
 
 ### Mapping events to Processes
 
